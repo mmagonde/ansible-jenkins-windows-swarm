@@ -1,0 +1,36 @@
+---
+
+- name: Create jenkins home
+  win_file:
+     path: "{{agent_home}}"
+     state: directory
+
+- name: Get jenkins agent jar
+  win_get_url:
+    url: "{{client_source}}"
+    dest: "{{agent_home}}\\{{client_jar}}"
+    force: no
+
+- name: Install windows nssm
+  win_chocolatey:
+    name: nssm
+    state: present
+
+- name: Install and start the jenkins agent service
+  win_nssm:
+    name: "{{service_name}}"
+    application: "{{java}}"
+    app_parameters_free_form: "-jar {{agent_home}}\\{{client_jar}} -name \"\"\"{{agent_name}}\"\"\" -disableClientsUniqueId -mode {{swarm_mode}} -executors {{swarm_executors}} -username {{jenkins_master_user}} -password {{jenkins_master_pass}} -master {{jenkins_master_url}} -labels {{swarm_labels}} -fsroot {{agent_home}} {{disable_ssl_verification}}"
+    user: "{{service_user}}"
+    password: "{{service_pass}}"
+    stdout_file: "{{agent_home}}\\log.txt"
+    stderr_file: "{{agent_home}}\\error.txt"
+  register: agent
+
+
+- name: Restart "{{service_name}}" service and set mode to automatic.
+  win_service:
+    name: "{{service_name}}"
+    start_mode: auto
+    state: restarted
+  when: agent.changed
